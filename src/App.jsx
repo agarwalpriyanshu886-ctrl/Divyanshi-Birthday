@@ -473,16 +473,43 @@ function Letter({ onOpenPhoto }) {
   )
 }
 
-function Final({ onOpenPhoto }) {
+function Final({ onOpenPhoto, onPauseMusic, onResumeMusic }) {
   const [open, setOpen] = useState(false)
+  const [videoEnded, setVideoEnded] = useState(false)
   const [k, setK] = useState(0)
+  const videoRef = useRef(null)
   const fp = photos.find((p) => p.also === 'final')
   const fpIndex = fp ? photos.findIndex((p) => p.src === fp.src) : -1
 
   const handleOpen = () => {
     setOpen(true)
     setK((x) => x + 1)
+    fireConfetti({ count: 75 })
+    if (onPauseMusic) onPauseMusic()
+    setTimeout(() => {
+      if (videoRef.current) {
+        videoRef.current.currentTime = 0
+        videoRef.current.play().catch(() => {})
+      }
+    }, 350)
+  }
+
+  const handleVideoPlay = () => {
+    if (onPauseMusic) onPauseMusic()
+  }
+
+  const handleVideoEnded = () => {
+    setVideoEnded(true)
+    setK((x) => x + 1)
     fireConfetti({ count: 90, fullRain: true })
+  }
+
+  const handleReplayVideo = () => {
+    if (onPauseMusic) onPauseMusic()
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0
+      videoRef.current.play().catch(() => {})
+    }
   }
 
   return (
@@ -492,22 +519,82 @@ function Final({ onOpenPhoto }) {
         <Gift open={open} />
         <Burst k={k} n={40} />
       </div>
+
       {!open && (
         <button className="btn" onClick={handleOpen}>{C.final.button}</button>
       )}
+
       {open && (
         <motion.div
-          className="card note final-card"
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4, duration: 0.8 }}
+          initial={{ opacity: 0, y: 25, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.6 }}
         >
-          {fp && <Polaroid p={fp} rot={-2} onClick={fpIndex >= 0 && onOpenPhoto ? () => onOpenPhoto(fpIndex) : undefined} />}
-          <h3>{C.final.title}</h3>
-          {C.final.paragraphs.map((t, i) => <p key={i}>{t}</p>)}
-          <p className="hand sig">{C.final.signoff.map((l) => <span key={l}>{l}<br /></span>)}</p>
+          <div className="surprise-video-wrap">
+            <video
+              ref={videoRef}
+              src="/videos/surprise.mp4"
+              controls
+              playsInline
+              preload="auto"
+              onPlay={handleVideoPlay}
+              onEnded={handleVideoEnded}
+              className="surprise-video"
+            />
+          </div>
+
+          {!videoEnded && (
+            <div style={{ margin: '1rem 0' }}>
+              <button
+                className="btn ghost"
+                style={{ fontSize: '0.92rem', padding: '0.6em 1.2em' }}
+                onClick={handleVideoEnded}
+              >
+                Skip to Message 💌
+              </button>
+            </div>
+          )}
+
+          <AnimatePresence>
+            {videoEnded && (
+              <motion.div
+                className="card note final-card"
+                initial={{ opacity: 0, y: 30, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.8 }}
+              >
+                <div className="final-badge">Special Birthday Message 💌</div>
+                {fp && (
+                  <Polaroid
+                    p={fp}
+                    rot={-2}
+                    onClick={fpIndex >= 0 && onOpenPhoto ? () => onOpenPhoto(fpIndex) : undefined}
+                  />
+                )}
+                <h3>{C.final.title}</h3>
+                <p className="hand" style={{ fontSize: '1.4rem', color: '#c2477f', margin: '0.4rem 0 0.8rem' }}>
+                  Hope this little video brought a big smile to your face! 🥹💗
+                </p>
+                {C.final.paragraphs.map((t, i) => (
+                  <p key={i}>{t}</p>
+                ))}
+                <p className="hand sig">
+                  {C.final.signoff.map((l) => (
+                    <span key={l}>{l}<br /></span>
+                  ))}
+                </p>
+                <div className="btns" style={{ marginTop: '1.4rem' }}>
+                  <button className="btn" onClick={handleReplayVideo}>Replay Video 🎬</button>
+                  {onResumeMusic && (
+                    <button className="btn ghost" onClick={onResumeMusic}>Play Music Again 🎵</button>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       )}
+
       <p className="foot">{C.final.footer}</p>
     </section>
   )
@@ -688,6 +775,14 @@ export default function App() {
     setMusicState((prev) => ({ ...prev, on: true }))
   }
 
+  const pauseMusic = useCallback(() => {
+    setMusicState((prev) => ({ ...prev, on: false }))
+  }, [])
+
+  const resumeMusic = useCallback(() => {
+    setMusicState((prev) => ({ ...prev, on: true }))
+  }, [])
+
   return (
     <>
       {C.features.cursorGlow && <CursorGlow />}
@@ -712,7 +807,11 @@ export default function App() {
             <CakeSection />
             <Gallery onOpenPhoto={setActivePhoto} />
             <Letter onOpenPhoto={setActivePhoto} />
-            <Final onOpenPhoto={setActivePhoto} />
+            <Final
+              onOpenPhoto={setActivePhoto}
+              onPauseMusic={pauseMusic}
+              onResumeMusic={resumeMusic}
+            />
           </main>
           {C.features.music && <Music musicState={musicState} setMusicState={setMusicState} />}
           {top && (
